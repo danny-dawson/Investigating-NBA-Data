@@ -1,0 +1,216 @@
+---
+title: "STAT 184 Final Project"
+author: "Danny Dawson"
+output: html_notebook
+---
+
+
+## Research Question 
+
+The NBA is one of my favorite professional sports leagues, as basketball is one of my favorite sports. With the modern NBA heavily using advanced analytics when it comes to building teams, I thought it would be appropriate to answer a research question of my own using NBA data. The research question I have is "How does height affect the PPG average of an NBA player?" 
+
+
+## Data Processing 
+
+```{r}
+library(tidyverse)
+library(ggplot2)
+```
+
+#### Data Intake 
+
+I downloaded two different data sets from Kaggle relating to NBA data. The first data set, which I have called "AllPlayersData", contains various statistics for every NBA player on it. It includes every player in the NBA who was on a roster starting in the 1996-1997 season. This data set includes the players' age, height, weight, team, draft year, college, and a lot more. It also includes their career points per game average, but I won't be using the ppg average from this data set. 
+
+I called the second data set that I downloaded "PlayerData1415". This data set contains statistics from NBA players exclusively during the 2014-15 season. The data set includes statistics such as games played, minutes played, total points scored, rebounds, assists, blocks, etc. 
+```{r}
+AllPlayersData <- read.csv('all-seasons.csv')
+
+head(AllPlayersData)
+
+PlayerData1415<- read.csv('players_stats.csv')
+
+head(PlayerData1415)
+```
+Link to data set 1 : https://www.kaggle.com/datasets/justinas/nba-players-data
+
+Link to data set 2: https://www.kaggle.com/datasets/drgilermo/nba-players-stats-20142015 
+
+
+
+
+
+#### Data Wrangling 
+
+```{r}
+PlayerStatsCombined <- 
+  AllPlayersData %>%
+    rename("Name" = "player_name") %>%
+    inner_join(PlayerData1415) %>%
+    filter(season == "2014-15") 
+
+PlayerStatsCombined %>%
+  select(Name, player_height, PTS, Games.Played)
+```
+
+### PlayerStatsCombined Explained
+
+This data wrangling is combining the two sets of data I have and inspecting the results. I combined the data sets by using an inner join and using the player name as the common variable. After that, I returned some of the variables that I was interested in, name, player_height, PTS, and Games Played. An interesting outlier in this data set is Josh Smith. Josh Smith was actually traded during the season from the Detroit Pistons to the Houston Rockets, so he actually played 83 regular season games, when each team only plays 82 during the regular season. 
+
+
+```{r} 
+
+PPG_CALC <- function(x,y){
+  calc <- x / y
+  return (round(calc, 1))
+}
+  
+PlayerStatsCombined %>%
+  mutate(PPG = PPG_CALC(PTS, Games.Played)) %>%
+  select(Name, player_height, PPG) %>%
+  arrange(desc(PPG))
+```
+
+### Top 10 Leading Scorers of the NBA 2014-15 Season
+
+This table shows the leading scorers for the 2014-15 NBA season, and their corresponding heights. Russell Westbrook led the league by averaging around 28.1 ppg as the starting point guard for the Oklahoma City Thunder. For this table, I manually calculated the PPG statistic by taking the total PTS scored by a player and dividing it by their games played. I defined this PPG calculation as a function called PPG_CALC, where the function just performs a simple division, then rounds the result to a one decimal number. 
+
+
+```{r}
+PlayerStatsCombined %>%
+  select(Name, PTS, player_height) %>%
+  arrange(desc(PTS))
+```
+
+### Top 10 Total Point Scorers of the 2014-15 NBA season
+
+This data set shows the total amount of points scored by a player in the 2014-15 season, followed by their height. Without the amount of games played being factored into how many points someone scores, there are some differences from the ten official leading scorers. James Harden led the league in total points scored, scoring 2217 points for the Houston Rockets. Players like Klay Thompson, Chris Paul, and Damian Lillard aren't in the top ten of PPG, but they are in the top ten in terms of PTS scored.  
+
+```{r}
+AveragePPG <- 
+  PlayerStatsCombined %>%
+  summarise(round(mean(PPG_CALC(PTS, Games.Played)), 1))
+
+AveragePPG
+
+```
+
+### Average PPG and Total Points Scored
+
+This calculation shows the average PPG for an NBA player. The average PPG for an NBA player is 8.2. I made this calculations to see how different positions compared to the league average for PPG. 
+
+
+
+```{r}
+JustGuardsPPG <-
+  PlayerStatsCombined %>%
+    filter(grepl("G", Pos)) %>%
+    summarise(round(mean(PPG_CALC(PTS, Games.Played)),1))
+
+JustForwardsPPG <- 
+  PlayerStatsCombined %>%
+    filter(grepl("F", Pos)) %>%
+    summarise(round(mean(PPG_CALC(PTS, Games.Played)),1))
+
+JustCentersPPG <- 
+  PlayerStatsCombined %>%
+    filter(grepl("C", Pos)) %>%
+    summarise(round(mean(PPG_CALC(PTS, Games.Played)),1))
+
+JustGuardsPPG
+JustForwardsPPG
+JustCentersPPG
+
+
+```
+
+### PPG Averages of Guards, Forwards, and Centers 
+
+In these 3 calculations, I found the average PPG for an NBA guard, forward, and center during the 2014-15 NBA season. The guards had the highest average PPG with 8.9, while the forwards and centers both had PPG averages of 7.8, which is actually below the league average of 8.2. Before making the graphs I had below, I expected the forwards to be clear leaders when it comes to PPG and PTS scored, but the guards may have better representation than I thought. 
+
+
+## Data Visualization
+
+
+```{r}
+Distribution_of_heights <-
+  PlayerStatsCombined %>%
+    ggplot(aes(player_height, color = draft_round, fill = draft_round)) +
+    geom_density(alpha = 0.1) +
+    ggtitle("Distribution of NBA Player Heights") +
+    xlab("Player Height (cm)")
+
+Distribution_of_heights
+```
+### DISTRIBUTION OF PLAYER HEIGHTS
+  
+Firstly, I wanted to inspect the distribution of height for NBA players. This distribution actually has some interesting results. I used the round the player was drafted in as an extra aesthetic, as the player drafted in the 1st round typically end up being the best players, thus having a better scoring average. The lines for draft rounds 1 and 2 follow the same trajectory, a slight upward slope, a peak from around 195 cm to 210 cm, then a rapid downward slope. The undrafted trajectory is slightly different, with the undrafted players having a much higher density at shorter heights (180 - 190 cm), than the drafted players. 
+
+This makes the average PPG measures of the positions make more sense. Even though forwards make up a lot of the highest scoring players, there is a greater density of forwards in the NBA, so they will naturally have a larger deviation of scoring than the guards and centers. 
+
+
+```{r}
+PlayerHeightvsPPG <- 
+  PlayerStatsCombined %>%
+    mutate(PPG = PPG_CALC(PTS, Games.Played)) %>%
+    ggplot(aes(player_height, PPG)) +
+    geom_col() +
+    ggtitle("Player Height vs PPG") +
+    ylab("PPG") +
+    xlab("Height of Player (cm)") + 
+    xlim(180,220)
+
+PlayerHeightvsPPG
+```
+
+### PLAYER HEIGHT VS PPG GRAPH
+
+This graph shows the comparison between the height of an NBA player and the PPG average of players in those heights. The y-axis values are large because I am summing up the PPG averages for players in a specific height, so the columns are really PPG averages added together of players of certain heights. The range that has the highest combined ppg average is the 200-210 cm range. I was expecting this kind of range, as a lot of the NBA best players (Lebron James, Kevin Durant, Carmelo Anthony, Anthony Davis) at the time were all forwards and are in this height range. 
+
+One interesting observation is the shorter players having better scoring averages (or at least a better distribution of scoring) than the taller players. At first, I assumed this was true because the change of play style in the NBA. In earlier decades, big men who could score down low and block shots were considered essential to winning games. Nowadays, fast guards and forwards who can shoot 3 pointers and guard the perimeter are considered the key pieces to winning games. I figured this caused the scoring discrepancy between the two height ranges. However, when looking at the distribution of heights again, there are a larger amount of smaller players in the NBA than very tall players, so this contributes to the difference in scoring as well. 
+
+
+```{r}
+PlayerHeightvsTotalPTS <- 
+  PlayerStatsCombined %>%
+    ggplot(aes(player_height, PTS, color = Pos)) + 
+    geom_point() +
+    ggtitle("Player Height vs Total Points") +
+    xlab("Height of Player (cm)") +
+    ylab("Total PTS Scored") +
+    xlim(180,220)
+
+PlayerHeightvsTotalPTS
+```
+
+### PLAYER HEIGHT VS TOTAL PTS GRAPH
+
+This graph shows the comparison between the height of an NBA player and the total PTS scored by those players in that height group. I also added a color aesthetic to see how the position would affect the points scored. There isn't really any surprise or discovery in this data. The shorter players are typically guards (PG and SG), and the taller players are either forwards or a center (SF, PF, and C). The pink dot at the top of the screen belongs to James Harden, who scored 2217 points for the Houston Rockets that season. The distribution of this graph is pretty similar to the graph before it, with forwards having the best scoring distributions. The guards are a little better represented with this graph, but not enough to sway the numebrs completely in their favor 
+
+
+
+```{r}
+PointsScoredbyPosition <- 
+  PlayerStatsCombined %>%
+    ggplot(aes(player_height, PTS)) +
+    geom_point() +
+    facet_wrap(. ~ Pos) +
+    xlab("Player Height (cm)") +
+    ylab("Total PTS") +
+    ggtitle("Points Scored by Position")
+
+PointsScoredbyPosition
+```
+### POINTS SCORED BY POSITION GRAPH
+
+This graph shows the scoring distribution for NBA players by position. The facet in the top left represents players in the data set who don't have a listed position available. The rest of the facets show the 5 positions and their scoring distribution by total points scored during the season. The forwards and centers seem to have the most normal distributions, with a clear center and few outliers. The guard facets though tell a different story. They have a wider range of heights in their distributions, and they even have some better scorers than the forwards. While the graphs so far show the ideal scorer in the NBA is a forward, the guards also prove they are capable scorers as well. 
+
+
+## Conclusion
+
+Looking at the data, there is a clear answer to my research question. The players in the 200 - 210 cm range are the ones with the best PPG averages and Total PTS scored. Therefore, the best height to be for an NBA player to score points well is within the 200-210 cm range. When converted to feet, the range is from 6'6 to around 6'9. Looking at some of the best scorers in the NBA during the 2014-15 season, you can see why this range is generated. Players like LeBron James, Kevin Durant, Carmelo Anthony, and Anthony Davis all fit into this range, and they were all within the top 6 scorers in terms of PPG for the 2014-15 season. 
+
+Looking at the graphs, there seems to be a random spike in PPG and PTS scored when it comes to the player height of 190 cm. This is where the context of the NBA season and the talent of point guards in the NBA matters. Two players in particular, Russell Westbrook and Stephen Curry were two of the top scores the in NBA that year, with Westbrook being the NBA's leading scorer. Both of these players are listed as being 190.50 cm tall, and since both had great scoring seasons, they are going to skew the numbers in that height area slightly. It would be interesting to see how the shape of the graph would be in other years, where maybe there were taller players having better seasons. 
+
+If there were to be a second best height range to score points, it would have to be in the 190 - 200 cm range. This range in feet is about 6'2 to 6'6. While this range is certainly boosted by some of the best guards in the NBA, there is other scoring data range that would suggest that players at this height are great scorers as well. James Harden, Russell Westbrook, and Stephen Curry are great examples of how a guard can be a great scorer. 
+
+
